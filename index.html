@@ -1,6 +1,15 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Calculator, FileText, Ruler, HardHat, Euro, Printer, ShieldCheck } from 'lucide-react';
 
+/**
+ * CALCOLATORE PRESTAZIONI PROFESSIONALI
+ * * Dipendenze necessarie per il progetto (package.json):
+ * - react
+ * - react-dom
+ * - lucide-react (per le icone)
+ * - tailwindcss (per lo stile)
+ */
+
 const Card = ({ children, className = "" }) => (
   <div className={`bg-slate-800 rounded-xl shadow-lg border border-slate-700 overflow-hidden print:bg-white print:border-slate-200 print:shadow-none ${className}`}>
     {children}
@@ -82,7 +91,7 @@ const PriceRow = ({ label, value, isBold = false, isTotal = false, subLabel = nu
   </div>
 );
 
-export default function ProfessionalQuoteCalculator() {
+export default function App() {
   // --- STATE INPUTS ---
   const [consultingHours, setConsultingHours] = useState(0);
   const [prefabSurface, setPrefabSurface] = useState(0);
