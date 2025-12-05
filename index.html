@@ -1,0 +1,464 @@
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { Calculator, FileText, Ruler, HardHat, Euro, Printer, ShieldCheck } from 'lucide-react';
+
+const Card = ({ children, className = "" }) => (
+  <div className={`bg-slate-800 rounded-xl shadow-lg border border-slate-700 overflow-hidden print:bg-white print:border-slate-200 print:shadow-none ${className}`}>
+    {children}
+  </div>
+);
+
+const SectionTitle = ({ icon: Icon, title }) => (
+  <div className="flex items-center gap-2 mb-4 text-slate-100 font-semibold border-b border-slate-700 pb-2 print:text-slate-800 print:border-slate-200">
+    {Icon && <Icon size={20} className="text-blue-400 print:text-blue-600" />}
+    <h3>{title}</h3>
+  </div>
+);
+
+// Componente InputField Migliorato per gestire la digitazione fluida
+const InputField = ({ label, value, onChange, placeholder, suffix, min, step }) => {
+  // Stato locale per gestire ciò che l'utente vede mentre scrive (es. "1." o "0,")
+  const [localValue, setLocalValue] = useState(value === 0 ? '' : String(value));
+
+  // Sincronizza lo stato locale se il valore esterno cambia (es. reset o calcoli collegati)
+  // ma evita di sovrascrivere se l'utente sta scrivendo un decimale (es. "1.")
+  useEffect(() => {
+    const numericLocal = parseFloat(localValue.replace(',', '.'));
+    if (numericLocal !== value) {
+       // Se il valore esterno è diverso da quello che ho scritto, aggiorno.
+       // (Gestisce anche il caso in cui il valore esterno torna a 0 o cambia per altre logiche)
+       if (value === 0 && localValue === '') return; // Non forzare 0 se è vuoto intenzionalmente
+       setLocalValue(value === 0 ? '' : String(value));
+    }
+  }, [value]);
+
+  const handleChange = (e) => {
+    const rawVal = e.target.value;
+    setLocalValue(rawVal); // Aggiorna subito la visualizzazione
+
+    // Sostituisci virgola con punto per il parsing corretto
+    const normalizedVal = rawVal.replace(',', '.');
+    const parsedVal = parseFloat(normalizedVal);
+
+    if (!isNaN(parsedVal)) {
+      onChange(parsedVal);
+    } else {
+      onChange(0);
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-1 mb-4">
+      <label className="text-sm font-medium text-slate-400 print:text-slate-600">{label}</label>
+      <div className="relative">
+        <input
+          type="text" // Usiamo text con inputMode decimal per massimo controllo su virgole/punti
+          inputMode="decimal"
+          value={localValue}
+          onChange={handleChange}
+          className="w-full p-2.5 pr-12 bg-slate-900 border border-slate-600 rounded-lg text-slate-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all placeholder-slate-600 print:bg-white print:border-slate-300 print:text-slate-900"
+          placeholder={placeholder || "0"}
+        />
+        {suffix && (
+          <span className="absolute right-3 top-2.5 text-slate-500 text-sm font-medium pointer-events-none print:text-slate-400">
+            {suffix}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+};
+
+const PriceRow = ({ label, value, isBold = false, isTotal = false, subLabel = null }) => (
+  <div className={`flex justify-between items-start py-2 ${isTotal ? 'mt-4 pt-4 border-t-2 border-slate-600 print:border-slate-200' : 'border-b border-slate-700/50 print:border-slate-100 last:border-0'}`}>
+    <div className="flex flex-col">
+      <span className={`${isBold || isTotal ? 'font-bold text-slate-100 print:text-slate-800' : 'text-slate-300 print:text-slate-600'} ${isTotal ? 'text-lg' : 'text-sm'}`}>
+        {label}
+      </span>
+      {subLabel && <span className="text-xs text-slate-500 italic print:text-slate-400">{subLabel}</span>}
+    </div>
+    <span className={`${isBold || isTotal ? 'font-bold text-slate-100 print:text-slate-800' : 'text-slate-200 print:text-slate-700'} ${isTotal ? 'text-xl text-blue-400 print:text-blue-700' : 'text-sm'}`}>
+      {new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(value)}
+    </span>
+  </div>
+);
+
+export default function ProfessionalQuoteCalculator() {
+  // --- STATE INPUTS ---
+  const [consultingHours, setConsultingHours] = useState(0);
+  const [prefabSurface, setPrefabSurface] = useState(0);
+  const [panelSurface, setPanelSurface] = useState(0);
+  const [foundationSurface, setFoundationSurface] = useState(0);
+  
+  // New State for REI Rate
+  const [certReiRate, setCertReiRate] = useState(0.5);
+
+  // Sync foundation surface with prefab surface by default for convenience, 
+  // but allow user to decouple if they start editing foundation specifically.
+  const [isFoundationSynced, setIsFoundationSynced] = useState(true);
+
+  const handlePrefabChange = (val) => {
+    setPrefabSurface(val);
+    if (isFoundationSynced) {
+      setFoundationSurface(val);
+    }
+  };
+
+  const handleFoundationChange = (val) => {
+    setFoundationSurface(val);
+    setIsFoundationSynced(false);
+  };
+
+  // --- CALCULATION LOGIC ---
+
+  // 1. Consulenze
+  const consultingCost = useMemo(() => {
+    if (consultingHours <= 0) return 0;
+    const rawCost = consultingHours * 50;
+    return Math.max(50, rawCost); // Minimo 50 Euro
+  }, [consultingHours]);
+
+  // 2. Progettazione Prefabbricati (CON Schede)
+  const prefabWithSheetsCost = useMemo(() => {
+    const s = prefabSurface;
+    if (s <= 0) return 0;
+
+    let cost = 0;
+    if (s < 1500) {
+      cost = 3000;
+    } else if (s < 5000) {
+      cost = Math.max(3000, s * 2.00);
+    } else if (s < 10000) {
+      cost = Math.max(10000, s * 1.90);
+    } else { // > 10000
+      cost = Math.max(19000, s * 1.75);
+    }
+    return cost;
+  }, [prefabSurface]);
+
+  // Schede Pannelli (Solo caso CON)
+  const panelSheetsCost = useMemo(() => {
+    if (panelSurface <= 0) return 0;
+    return Math.max(800, panelSurface * 0.77);
+  }, [panelSurface]);
+
+  // 3. Progettazione Prefabbricati (SENZA Schede)
+  const prefabWithoutSheetsCost = useMemo(() => {
+    const s = prefabSurface;
+    if (s <= 0) return 0;
+
+    let cost = 0;
+    if (s < 1500) {
+      cost = 1500;
+    } else if (s < 5000) {
+      cost = Math.max(1500, s * 1.00);
+    } else { // > 5000
+      cost = Math.max(5000, s * 0.85);
+    }
+    return cost;
+  }, [prefabSurface]);
+
+  // 4. Fondazioni (CON Esecutivi)
+  const foundationWithExecCost = useMemo(() => {
+    if (foundationSurface <= 0) return 0;
+    return Math.max(2000, foundationSurface * 1.00);
+  }, [foundationSurface]);
+
+  // 5. Fondazioni (SENZA Esecutivi)
+  const foundationWithoutExecCost = useMemo(() => {
+    if (foundationSurface <= 0) return 0;
+    return Math.max(1400, foundationSurface * 0.60);
+  }, [foundationSurface]);
+
+  // 6. Certificazione REI
+  const totalSurface = prefabSurface + panelSurface;
+  const certReiCost = useMemo(() => {
+    if (totalSurface <= 0) return 0;
+    return totalSurface * certReiRate;
+  }, [totalSurface, certReiRate]);
+
+  // --- TOTALS ---
+
+  // Scenario A: CON Esecutivi
+  const totalA_Net = consultingCost + prefabWithSheetsCost + panelSheetsCost + foundationWithExecCost + certReiCost;
+  const cassaA = totalA_Net * 0.04;
+  const totalA_Gross = totalA_Net + cassaA;
+
+  // Scenario B: SENZA Esecutivi
+  const totalB_Net = consultingCost + prefabWithoutSheetsCost + foundationWithoutExecCost + certReiCost;
+  const cassaB = totalB_Net * 0.04;
+  const totalB_Gross = totalB_Net + cassaB;
+
+  // Costo al MQ
+  const costPerSqmA = totalSurface > 0 ? totalA_Gross / totalSurface : 0;
+  const costPerSqmB = totalSurface > 0 ? totalB_Gross / totalSurface : 0;
+
+  return (
+    <div className="min-h-screen bg-slate-900 p-4 md:p-8 font-sans text-slate-200 print:bg-white print:text-black">
+      <div className="max-w-6xl mx-auto space-y-6">
+        
+        {/* HEADER */}
+        <header className="flex flex-col md:flex-row justify-between items-center bg-slate-800 p-6 rounded-xl shadow-lg border border-slate-700 print:bg-white print:border-slate-200 print:shadow-none">
+          <div>
+            <h1 className="text-2xl font-bold text-white flex items-center gap-2 print:text-slate-800">
+              <Calculator className="text-blue-500 print:text-blue-600" />
+              Calcolo Prestazioni Professionali
+            </h1>
+            <p className="text-slate-400 mt-1 print:text-slate-500">Preventivazione automatica con/senza esecutivi</p>
+          </div>
+          <button 
+            onClick={() => window.print()}
+            className="mt-4 md:mt-0 flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-500 transition-colors print:hidden shadow-lg shadow-blue-900/20"
+          >
+            <Printer size={18} />
+            Stampa / PDF
+          </button>
+        </header>
+
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          
+          {/* INPUT COLUMN */}
+          <div className="lg:col-span-4 space-y-6 print:hidden">
+            <Card className="p-6">
+              <SectionTitle icon={FileText} title="Dati di Ingresso" />
+              
+              <div className="space-y-6">
+                <div>
+                  <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 print:text-slate-400">Consulenze</h4>
+                  <InputField 
+                    label="Ore impiegate" 
+                    value={consultingHours} 
+                    onChange={setConsultingHours} 
+                    placeholder="Es. 10"
+                    suffix="ore"
+                  />
+                  <p className="text-xs text-slate-500">Tariffa: 50€/ora (Min. 50€)</p>
+                </div>
+
+                <div className="border-t pt-4 border-slate-700/50 print:border-slate-100">
+                  <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 print:text-slate-400">Edificio & Prefabbricati</h4>
+                  <InputField 
+                    label="Superficie Edificio (SUP)" 
+                    value={prefabSurface} 
+                    onChange={handlePrefabChange}
+                    placeholder="Es. 2000"
+                    suffix="mq"
+                  />
+                  
+                  <InputField 
+                    label="Superficie Prospetto Pannelli" 
+                    value={panelSurface} 
+                    onChange={setPanelSurface} 
+                    placeholder="Es. 500"
+                    suffix="mq"
+                  />
+                </div>
+
+                <div className="border-t pt-4 border-slate-700/50 print:border-slate-100">
+                  <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 print:text-slate-400">Fondazioni</h4>
+                  <InputField 
+                    label="Superficie Coperta" 
+                    value={foundationSurface} 
+                    onChange={handleFoundationChange} 
+                    placeholder="Es. 2000"
+                    suffix="mq"
+                  />
+                  {isFoundationSynced && (
+                    <p className="text-xs text-blue-400 mt-1 italic print:text-blue-500">Sincronizzato con Sup. Edificio</p>
+                  )}
+                </div>
+
+                <div className="border-t pt-4 border-slate-700/50 print:border-slate-100">
+                  <div className="flex items-center gap-2 mb-3">
+                    <ShieldCheck size={16} className="text-slate-400" />
+                    <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider print:text-slate-400">Certificazione REI</h4>
+                  </div>
+                  
+                  <InputField 
+                    label="Tariffa Cert. REI" 
+                    value={certReiRate} 
+                    onChange={setCertReiRate} 
+                    placeholder="0.5"
+                    step="0.01"
+                    suffix="€/mq"
+                  />
+                  <p className="text-xs text-slate-500">Applicata su Totale Superficie (Edificio + Pannelli).</p>
+                </div>
+              </div>
+            </Card>
+
+            <div className="bg-blue-900/30 p-4 rounded-xl border border-blue-800 text-sm text-blue-200 print:bg-blue-50 print:border-blue-100 print:text-blue-800">
+              <p><strong>Nota Cassa:</strong> Il contributo integrativo del 4% viene calcolato automaticamente sul totale imponibile (incluso Cert. REI).</p>
+            </div>
+          </div>
+
+          {/* RESULTS COLUMN */}
+          <div className="lg:col-span-8 space-y-6">
+            
+            {/* COMPARISON GRID */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              
+              {/* SCENARIO A: CON ESECUTIVI */}
+              <Card className="p-0 border-t-4 border-t-emerald-500 h-full">
+                <div className="p-4 bg-emerald-900/30 border-b border-emerald-800 print:bg-emerald-50 print:border-emerald-100">
+                  <h2 className="text-lg font-bold text-emerald-400 flex items-center gap-2 print:text-emerald-800">
+                    <HardHat size={20} />
+                    Completo (Con Esecutivi)
+                  </h2>
+                  <p className="text-xs text-emerald-300/80 print:text-emerald-600">Progettazione, schede produzione e fondazioni esecutive</p>
+                </div>
+                <div className="p-6">
+                  <div className="space-y-2">
+                    <PriceRow 
+                      label="Consulenze" 
+                      subLabel={consultingHours > 0 ? `${consultingHours} ore` : null}
+                      value={consultingCost} 
+                    />
+                    
+                    <div className="py-2 border-b border-slate-700/50 print:border-slate-50">
+                      <div className="flex justify-between items-center mb-1">
+                        <span className="text-sm text-slate-300 print:text-slate-600">Prog. Prefabbricati</span>
+                        <span className="text-sm font-semibold text-slate-200 print:text-slate-700">
+                          {new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(prefabWithSheetsCost)}
+                        </span>
+                      </div>
+                      <div className="text-xs text-slate-500 italic mb-2 print:text-slate-400">Include esecuzione schede</div>
+                      
+                      {/* Sub-item Pannelli */}
+                      <div className="flex justify-between items-center pl-3 border-l-2 border-slate-600 print:border-slate-200">
+                        <span className="text-xs text-slate-500 print:text-slate-500">di cui Schede Pannelli</span>
+                        <span className="text-xs text-slate-500 print:text-slate-500">
+                          {new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(panelSheetsCost)}
+                        </span>
+                      </div>
+                    </div>
+
+                    <PriceRow 
+                      label="Prog. Fondazioni" 
+                      subLabel="Con esecutivi"
+                      value={foundationWithExecCost} 
+                    />
+
+                    <PriceRow 
+                      label="Cert. REI" 
+                      subLabel={`${new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(certReiRate)}/mq su ${totalSurface} mq`}
+                      value={certReiCost} 
+                    />
+
+                    <div className="mt-8 pt-4 border-t border-slate-600 print:border-slate-200">
+                      <div className="flex justify-between text-slate-400 mb-2 print:text-slate-600">
+                        <span>Totale Imponibile</span>
+                        <span>{new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(totalA_Net)}</span>
+                      </div>
+                      <div className="flex justify-between text-slate-400 mb-4 print:text-slate-600">
+                        <span>Cassa (4%)</span>
+                        <span>{new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(cassaA)}</span>
+                      </div>
+                      <div className="flex justify-between items-center bg-emerald-900/40 p-3 rounded-lg border border-emerald-800/50 print:bg-emerald-50 print:border-emerald-100">
+                        <span className="font-bold text-emerald-300 print:text-emerald-900">TOTALE COMPLESSIVO</span>
+                        <div className="text-right">
+                          <div className="font-bold text-xl text-emerald-400 print:text-emerald-700">
+                            {new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(totalA_Gross)}
+                          </div>
+                          {totalSurface > 0 && (
+                            <div className="text-xs text-emerald-300/70 print:text-emerald-600 mt-1">
+                              ({new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(costPerSqmA)} / mq)
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </Card>
+
+              {/* SCENARIO B: SENZA ESECUTIVI */}
+              <Card className="p-0 border-t-4 border-t-slate-500 h-full">
+                <div className="p-4 bg-slate-700/50 border-b border-slate-600 print:bg-slate-50 print:border-slate-200">
+                  <h2 className="text-lg font-bold text-slate-200 flex items-center gap-2 print:text-slate-800">
+                    <Ruler size={20} />
+                    Base (Senza Esecutivi)
+                  </h2>
+                  <p className="text-xs text-slate-400 print:text-slate-500">Senza schede produzione e senza esecutivi fondazioni</p>
+                </div>
+                <div className="p-6">
+                  <div className="space-y-2">
+                    <PriceRow 
+                      label="Consulenze" 
+                      subLabel={consultingHours > 0 ? `${consultingHours} ore` : null}
+                      value={consultingCost} 
+                    />
+                    
+                    <PriceRow 
+                      label="Prog. Prefabbricati" 
+                      subLabel="Senza schede produzione"
+                      value={prefabWithoutSheetsCost} 
+                    />
+                    
+                    <div className="py-2 border-b border-slate-700/50 last:border-0 opacity-50 print:border-slate-50">
+                      <div className="flex justify-between items-start">
+                        <span className="text-sm text-slate-500 line-through print:text-slate-400">Schede Pannelli</span>
+                        <span className="text-sm text-slate-500 print:text-slate-400">Non incluso</span>
+                      </div>
+                    </div>
+
+                    <PriceRow 
+                      label="Prog. Fondazioni" 
+                      subLabel="Senza esecutivi"
+                      value={foundationWithoutExecCost} 
+                    />
+
+                    <PriceRow 
+                      label="Cert. REI" 
+                      subLabel={`${new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(certReiRate)}/mq su ${totalSurface} mq`}
+                      value={certReiCost} 
+                    />
+
+                    <div className="mt-8 pt-4 border-t border-slate-600 print:border-slate-200">
+                      <div className="flex justify-between text-slate-400 mb-2 print:text-slate-600">
+                        <span>Totale Imponibile</span>
+                        <span>{new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(totalB_Net)}</span>
+                      </div>
+                      <div className="flex justify-between text-slate-400 mb-4 print:text-slate-600">
+                        <span>Cassa (4%)</span>
+                        <span>{new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(cassaB)}</span>
+                      </div>
+                      <div className="flex justify-between items-center bg-slate-700/50 p-3 rounded-lg border border-slate-600 print:bg-slate-100 print:border-slate-200">
+                        <span className="font-bold text-slate-300 print:text-slate-900">TOTALE COMPLESSIVO</span>
+                        <div className="text-right">
+                          <div className="font-bold text-xl text-slate-200 print:text-slate-700">
+                            {new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(totalB_Gross)}
+                          </div>
+                          {totalSurface > 0 && (
+                            <div className="text-xs text-slate-400 print:text-slate-600 mt-1">
+                              ({new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(costPerSqmB)} / mq)
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </Card>
+
+            </div>
+
+            {/* PRINT SUMMARY (Only visible when printing) */}
+            <div className="hidden print:block mt-8 text-black">
+              <h3 className="font-bold border-b pb-2 mb-4">Dettaglio Parametri di Calcolo Utilizzati</h3>
+              <ul className="text-sm space-y-1 list-disc pl-5">
+                <li>Ore consulenza: {consultingHours}</li>
+                <li>Superficie Edificio: {prefabSurface} mq</li>
+                <li>Superficie Pannelli: {panelSurface} mq</li>
+                <li>Superficie Fondazioni: {foundationSurface} mq</li>
+                <li>Tariffa Cert. REI: {certReiRate} €/mq</li>
+                <li>Superficie Totale (Edificio + Pannelli): {totalSurface} mq</li>
+              </ul>
+              <p className="mt-4 text-xs text-slate-500">Documento generato automaticamente.</p>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
