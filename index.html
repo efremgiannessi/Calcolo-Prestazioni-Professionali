@@ -8,10 +8,7 @@
     <!-- Tailwind CSS per lo stile -->
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- Vue.js per la logica -->
-    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
-    
-    <!-- Lucide Icons -->
+    <!-- Lucide Icons (Caricato globalmente per semplicità) -->
     <script src="https://unpkg.com/lucide@latest"></script>
 
     <style>
@@ -42,11 +39,14 @@
         input[type=number] {
             -moz-appearance: textfield;
         }
+        
+        [v-cloak] { display: none; }
     </style>
 </head>
 <body class="bg-slate-900 text-slate-200 font-sans antialiased min-h-screen">
 
-    <div id="app" class="p-4 md:p-8 min-h-screen print:p-0 print:bg-white print:text-black">
+    <!-- v-cloak nasconde l'app finché Vue non è pronto -->
+    <div id="app" v-cloak class="p-4 md:p-8 min-h-screen print:p-0 print:bg-white print:text-black">
         <div class="max-w-6xl mx-auto space-y-6">
             
             <!-- HEADER -->
@@ -281,9 +281,9 @@
         </div>
     </div>
 
-    <!-- APP SCRIPT -->
-    <script>
-        const { createApp } = Vue;
+    <!-- APP SCRIPT - USANDO ES MODULE -->
+    <script type="module">
+        import { createApp } from 'https://unpkg.com/vue@3/dist/vue.esm-browser.js';
 
         const PriceRow = {
             props: ['label', 'value', 'subLabel'],
@@ -390,11 +390,15 @@
             },
             mounted() {
                 // Inizializza le icone
-                lucide.createIcons();
+                if (typeof lucide !== 'undefined') {
+                    lucide.createIcons();
+                }
             },
             updated() {
                 // Aggiorna icone se il DOM cambia
-                lucide.createIcons();
+                if (typeof lucide !== 'undefined') {
+                    lucide.createIcons();
+                }
             }
         }).mount('#app');
     </script>
