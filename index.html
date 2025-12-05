@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calcolatore Prestazioni Professionali</title>
+    
+    <!-- Tailwind CSS per lo stile -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Vue.js per la logica -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <style>
+        /* Regole specifiche per la stampa */
+        @media print {
+            body { background-color: white !important; color: black !important; }
+            .print\:hidden { display: none !important; }
+            .print\:bg-white { background-color: white !important; }
+            .print\:text-black { color: black !important; }
+            .print\:border-slate-200 { border-color: #e2e8f0 !important; }
+            .print\:border-slate-300 { border-color: #cbd5e1 !important; }
+            .print\:shadow-none { box-shadow: none !important; }
+            .print\:text-slate-800 { color: #1e293b !important; }
+            .print\:text-slate-600 { color: #475569 !important; }
+            .print\:text-slate-900 { color: #0f172a !important; }
+            .print\:text-blue-600 { color: #2563eb !important; }
+            .print\:text-emerald-800 { color: #065f46 !important; }
+            .print\:text-emerald-700 { color: #047857 !important; }
+            input { border: 1px solid #cbd5e1 !important; background: white !important; color: black !important; }
+        }
+        
+        /* Nascondi le frecce input number */
+        input[type=number]::-webkit-inner-spin-button, 
+        input[type=number]::-webkit-outer-spin-button { 
+            -webkit-appearance: none; 
+            margin: 0; 
+        }
+        input[type=number] {
+            -moz-appearance: textfield;
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-200 font-sans antialiased min-h-screen">
+
+    <div id="app" class="p-4 md:p-8 min-h-screen print:p-0 print:bg-white print:text-black">
+        <div class="max-w-6xl mx-auto space-y-6">
+            
+            <!-- HEADER -->
+            <header class="flex flex-col md:flex-row justify-between items-center bg-slate-800 p-6 rounded-xl shadow-lg border border-slate-700 print:bg-white print:border-slate-200 print:shadow-none">
+                <div>
+                    <h1 class="text-2xl font-bold text-white flex items-center gap-2 print:text-slate-800">
+                        <i data-lucide="calculator" class="text-blue-400 print:text-blue-600"></i>
+                        Calcolo Prestazioni Professionali
+                    </h1>
+                    <p class="text-slate-400 mt-1 print:text-slate-500">Preventivazione automatica con/senza esecutivi</p>
+                </div>
+                <button 
+                    @click="printPage"
+                    class="mt-4 md:mt-0 flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-500 transition-colors print:hidden shadow-lg shadow-blue-900/20"
+                >
+                    <i data-lucide="printer" class="w-4 h-4"></i>
+                    Stampa / PDF
+                </button>
+            </header>
+
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                
+                <!-- COLONNA INPUT (Sinistra) -->
+                <div class="lg:col-span-4 space-y-6 print:hidden">
+                    <div class="bg-slate-800 rounded-xl shadow-lg border border-slate-700 overflow-hidden p-6">
+                        
+                        <div class="flex items-center gap-2 mb-4 text-slate-100 font-semibold border-b border-slate-700 pb-2">
+                            <i data-lucide="file-text" class="text-blue-400 w-5 h-5"></i>
+                            <h3>Dati di Ingresso</h3>
+                        </div>
+
+                        <div class="space-y-6">
+                            <!-- Consulenze -->
+                            <div>
+                                <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Consulenze</h4>
+                                <div class="flex flex-col gap-1 mb-4">
+                                    <label class="text-sm font-medium text-slate-400">Ore impiegate</label>
+                                    <div class="relative">
+                                        <input type="number" min="0" v-model.number="consultingHours" placeholder="Es. 10" 
+                                            class="w-full p-2.5 pr-12 bg-slate-900 border border-slate-600 rounded-lg text-slate-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all placeholder-slate-600">
+                                        <span class="absolute right-3 top-2.5 text-slate-500 text-sm font-medium pointer-events-none">ore</span>
+                                    </div>
+                                    <p class="text-xs text-slate-500">Tariffa: 50€/ora (Min. 50€)</p>
+                                </div>
+                            </div>
+
+                            <!-- Edificio -->
+                            <div class="border-t pt-4 border-slate-700/50">
+                                <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Edificio & Prefabbricati</h4>
+                                
+                                <div class="flex flex-col gap-1 mb-4">
+                                    <label class="text-sm font-medium text-slate-400">Superficie Edificio (SUP)</label>
+                                    <div class="relative">
+                                        <input type="number" min="0" v-model.number="prefabSurface" @input="syncFoundation" placeholder="Es. 2000"
+                                            class="w-full p-2.5 pr-12 bg-slate-900 border border-slate-600 rounded-lg text-slate-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all placeholder-slate-600">
+                                        <span class="absolute right-3 top-2.5 text-slate-500 text-sm font-medium pointer-events-none">mq</span>
+                                    </div>
+                                </div>
+
+                                <div class="flex flex-col gap-1 mb-4">
+                                    <label class="text-sm font-medium text-slate-400">Superficie Prospetto Pannelli</label>
+                                    <div class="relative">
+                                        <input type="number" min="0" v-model.number="panelSurface" placeholder="Es. 500"
+                                            class="w-full p-2.5 pr-12 bg-slate-900 border border-slate-600 rounded-lg text-slate-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all placeholder-slate-600">
+                                        <span class="absolute right-3 top-2.5 text-slate-500 text-sm font-medium pointer-events-none">mq</span>
+                                    </div>
+                                    <p class="text-xs text-slate-500">Usata solo per il calcolo schede pannelli.</p>
+                                </div>
+                            </div>
+
+                            <!-- Fondazioni -->
+                            <div class="border-t pt-4 border-slate-700/50">
+                                <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Fondazioni</h4>
+                                <div class="flex flex-col gap-1 mb-4">
+                                    <label class="text-sm font-medium text-slate-400">Superficie Coperta</label>
+                                    <div class="relative">
+                                        <input type="number" min="0" v-model.number="foundationSurface" @input="isFoundationSynced = false" placeholder="Es. 2000"
+                                            class="w-full p-2.5 pr-12 bg-slate-900 border border-slate-600 rounded-lg text-slate-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all placeholder-slate-600">
+                                        <span class="absolute right-3 top-2.5 text-slate-500 text-sm font-medium pointer-events-none">mq</span>
+                                    </div>
+                                    <p v-if="isFoundationSynced" class="text-xs text-blue-400 mt-1 italic">Sincronizzato con Sup. Edificio</p>
+                                </div>
+                            </div>
+
+                            <!-- Cert REI -->
+                            <div class="border-t pt-4 border-slate-700/50">
+                                <div class="flex items-center gap-2 mb-3">
+                                    <i data-lucide="shield-check" class="text-slate-400 w-4 h-4"></i>
+                                    <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wider">Certificazione REI</h4>
+                                </div>
+                                <div class="flex flex-col gap-1 mb-4">
+                                    <label class="text-sm font-medium text-slate-400">Tariffa Cert. REI</label>
+                                    <div class="relative">
+                                        <input type="number" step="0.01" v-model.number="certReiRate" placeholder="0.5"
+                                            class="w-full p-2.5 pr-12 bg-slate-900 border border-slate-600 rounded-lg text-slate-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all placeholder-slate-600">
+                                        <span class="absolute right-3 top-2.5 text-slate-500 text-sm font-medium pointer-events-none">€/mq</span>
+                                    </div>
+                                    <p class="text-xs text-slate-500">Applicata su Totale Superficie (Edificio + Pannelli).</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-blue-900/30 p-4 rounded-xl border border-blue-800 text-sm text-blue-200">
+                        <p><strong>Nota Cassa:</strong> Il contributo integrativo del 4% viene calcolato automaticamente sul totale imponibile (incluso Cert. REI).</p>
+                    </div>
+                </div>
+
+                <!-- COLONNA RISULTATI (Destra) -->
+                <div class="lg:col-span-8 space-y-6">
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        
+                        <!-- SCENARIO A -->
+                        <div class="bg-slate-800 rounded-xl shadow-lg border border-t-4 border-slate-700 border-t-emerald-500 overflow-hidden print:bg-white print:border-emerald-200 print:shadow-none h-full">
+                            <div class="p-4 bg-emerald-900/30 border-b border-emerald-800 print:bg-emerald-50 print:border-emerald-100">
+                                <h2 class="text-lg font-bold text-emerald-400 flex items-center gap-2 print:text-emerald-800">
+                                    <i data-lucide="hard-hat" class="w-5 h-5"></i>
+                                    Completo (Con Esecutivi)
+                                </h2>
+                                <p class="text-xs text-emerald-300/80 print:text-emerald-600">Progettazione, schede produzione e fondazioni esecutive</p>
+                            </div>
+                            <div class="p-6 space-y-2">
+                                <!-- Righe Costi -->
+                                <price-row label="Consulenze" :sub-label="consultingHours > 0 ? consultingHours + ' ore' : null" :value="consultingCost"></price-row>
+
+                                <div class="py-2 border-b border-slate-700/50 print:border-slate-100">
+                                    <div class="flex justify-between items-center mb-1">
+                                        <span class="text-sm text-slate-300 print:text-slate-600">Prog. Prefabbricati</span>
+                                        <span class="text-sm font-semibold text-slate-200 print:text-slate-700">{{ formatMoney(prefabWithSheetsCost) }}</span>
+                                    </div>
+                                    <div class="text-xs text-slate-500 italic mb-2 print:text-slate-400">Include esecuzione schede</div>
+                                    <div class="flex justify-between items-center pl-3 border-l-2 border-slate-600 print:border-slate-200">
+                                        <span class="text-xs text-slate-500">di cui Schede Pannelli</span>
+                                        <span class="text-xs text-slate-500">{{ formatMoney(panelSheetsCost) }}</span>
+                                    </div>
+                                </div>
+
+                                <price-row label="Prog. Fondazioni" sub-label="Con esecutivi" :value="foundationWithExecCost"></price-row>
+                                
+                                <price-row label="Cert. REI" :sub-label="formatMoney(certReiRate) + '/mq su ' + totalSurface + ' mq'" :value="certReiCost"></price-row>
+
+                                <!-- Totali -->
+                                <div class="mt-8 pt-4 border-t border-slate-600 print:border-slate-200">
+                                    <div class="flex justify-between text-slate-400 mb-2 print:text-slate-600">
+                                        <span>Totale Imponibile</span>
+                                        <span>{{ formatMoney(totalA_Net) }}</span>
+                                    </div>
+                                    <div class="flex justify-between text-slate-400 mb-4 print:text-slate-600">
+                                        <span>Cassa (4%)</span>
+                                        <span>{{ formatMoney(cassaA) }}</span>
+                                    </div>
+                                    <div class="flex justify-between items-center bg-emerald-900/40 p-3 rounded-lg border border-emerald-800/50 print:bg-emerald-50 print:border-emerald-100">
+                                        <span class="font-bold text-emerald-300 print:text-emerald-900">TOTALE COMPLESSIVO</span>
+                                        <div class="text-right">
+                                            <div class="font-bold text-xl text-emerald-400 print:text-emerald-700">{{ formatMoney(totalA_Gross) }}</div>
+                                            <div v-if="totalSurface > 0" class="text-xs text-emerald-300/70 print:text-emerald-600 mt-1">
+                                                ({{ formatMoney(costPerSqmA) }} / mq)
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- SCENARIO B -->
+                        <div class="bg-slate-800 rounded-xl shadow-lg border border-t-4 border-slate-700 border-t-slate-500 overflow-hidden print:bg-white print:border-slate-200 print:shadow-none h-full">
+                            <div class="p-4 bg-slate-700/50 border-b border-slate-600 print:bg-slate-50 print:border-slate-200">
+                                <h2 class="text-lg font-bold text-slate-200 flex items-center gap-2 print:text-slate-800">
+                                    <i data-lucide="ruler" class="w-5 h-5"></i>
+                                    Base (Senza Esecutivi)
+                                </h2>
+                                <p class="text-xs text-slate-400 print:text-slate-500">Senza schede produzione e senza esecutivi fondazioni</p>
+                            </div>
+                            <div class="p-6 space-y-2">
+                                <price-row label="Consulenze" :sub-label="consultingHours > 0 ? consultingHours + ' ore' : null" :value="consultingCost"></price-row>
+                                
+                                <price-row label="Prog. Prefabbricati" sub-label="Senza schede produzione" :value="prefabWithoutSheetsCost"></price-row>
+
+                                <div class="py-2 border-b border-slate-700/50 last:border-0 opacity-50 print:border-slate-100">
+                                    <div class="flex justify-between items-start">
+                                        <span class="text-sm text-slate-500 line-through print:text-slate-400">Schede Pannelli</span>
+                                        <span class="text-sm text-slate-500 print:text-slate-400">Non incluso</span>
+                                    </div>
+                                </div>
+
+                                <price-row label="Prog. Fondazioni" sub-label="Senza esecutivi" :value="foundationWithoutExecCost"></price-row>
+                                
+                                <price-row label="Cert. REI" :sub-label="formatMoney(certReiRate) + '/mq su ' + totalSurface + ' mq'" :value="certReiCost"></price-row>
+
+                                <!-- Totali -->
+                                <div class="mt-8 pt-4 border-t border-slate-600 print:border-slate-200">
+                                    <div class="flex justify-between text-slate-400 mb-2 print:text-slate-600">
+                                        <span>Totale Imponibile</span>
+                                        <span>{{ formatMoney(totalB_Net) }}</span>
+                                    </div>
+                                    <div class="flex justify-between text-slate-400 mb-4 print:text-slate-600">
+                                        <span>Cassa (4%)</span>
+                                        <span>{{ formatMoney(cassaB) }}</span>
+                                    </div>
+                                    <div class="flex justify-between items-center bg-slate-700/50 p-3 rounded-lg border border-slate-600 print:bg-slate-100 print:border-slate-200">
+                                        <span class="font-bold text-slate-300 print:text-slate-900">TOTALE COMPLESSIVO</span>
+                                        <div class="text-right">
+                                            <div class="font-bold text-xl text-slate-200 print:text-slate-700">{{ formatMoney(totalB_Gross) }}</div>
+                                            <div v-if="totalSurface > 0" class="text-xs text-slate-400 print:text-slate-600 mt-1">
+                                                ({{ formatMoney(costPerSqmB) }} / mq)
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <!-- PRINT SUMMARY -->
+                    <div class="hidden print:block mt-8 text-black">
+                        <h3 class="font-bold border-b pb-2 mb-4">Dettaglio Parametri di Calcolo Utilizzati</h3>
+                        <ul class="text-sm space-y-1 list-disc pl-5">
+                            <li>Ore consulenza: {{ consultingHours }}</li>
+                            <li>Superficie Edificio: {{ prefabSurface }} mq</li>
+                            <li>Superficie Pannelli: {{ panelSurface }} mq</li>
+                            <li>Superficie Fondazioni: {{ foundationSurface }} mq</li>
+                            <li>Tariffa Cert. REI: {{ certReiRate }} €/mq</li>
+                            <li>Superficie Totale (Edificio + Pannelli): {{ totalSurface }} mq</li>
+                        </ul>
+                        <p class="mt-4 text-xs text-slate-500">Documento generato automaticamente.</p>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- APP SCRIPT -->
+    <script>
+        const { createApp } = Vue;
+
+        const PriceRow = {
+            props: ['label', 'value', 'subLabel'],
+            template: `
+            <div class="flex justify-between items-start py-2 border-b border-slate-700/50 last:border-0 print:border-slate-100">
+                <div class="flex flex-col">
+                    <span class="text-slate-300 text-sm print:text-slate-600">{{ label }}</span>
+                    <span v-if="subLabel" class="text-xs text-slate-500 italic print:text-slate-400">{{ subLabel }}</span>
+                </div>
+                <span class="text-slate-200 font-bold text-sm print:text-slate-700">
+                    {{ new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(value) }}
+                </span>
+            </div>
+            `
+        };
+
+        createApp({
+            components: { PriceRow },
+            data() {
+                return {
+                    consultingHours: 0,
+                    prefabSurface: 0,
+                    panelSurface: 0,
+                    foundationSurface: 0,
+                    certReiRate: 0.5,
+                    isFoundationSynced: true
+                }
+            },
+            methods: {
+                formatMoney(val) {
+                    return new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(val);
+                },
+                printPage() {
+                    window.print();
+                },
+                syncFoundation() {
+                    if (this.isFoundationSynced) {
+                        this.foundationSurface = this.prefabSurface;
+                    }
+                }
+            },
+            computed: {
+                totalSurface() {
+                    return (this.prefabSurface || 0) + (this.panelSurface || 0);
+                },
+                consultingCost() {
+                    if (this.consultingHours <= 0) return 0;
+                    const raw = this.consultingHours * 50;
+                    return Math.max(50, raw);
+                },
+                // PREFABBRICATI CON SCHEDE
+                prefabWithSheetsCost() {
+                    const s = this.prefabSurface || 0;
+                    if (s <= 0) return 0;
+                    if (s < 1500) return 3000;
+                    if (s < 5000) return Math.max(3000, s * 2.00);
+                    if (s < 10000) return Math.max(10000, s * 1.90);
+                    return Math.max(19000, s * 1.75);
+                },
+                panelSheetsCost() {
+                    const s = this.panelSurface || 0;
+                    if (s <= 0) return 0;
+                    return Math.max(800, s * 0.77);
+                },
+                // PREFABBRICATI SENZA SCHEDE
+                prefabWithoutSheetsCost() {
+                    const s = this.prefabSurface || 0;
+                    if (s <= 0) return 0;
+                    if (s < 1500) return 1500;
+                    if (s < 5000) return Math.max(1500, s * 1.00);
+                    return Math.max(5000, s * 0.85);
+                },
+                // FONDAZIONI
+                foundationWithExecCost() {
+                    const s = this.foundationSurface || 0;
+                    if (s <= 0) return 0;
+                    return Math.max(2000, s * 1.00);
+                },
+                foundationWithoutExecCost() {
+                    const s = this.foundationSurface || 0;
+                    if (s <= 0) return 0;
+                    return Math.max(1400, s * 0.60);
+                },
+                // REI
+                certReiCost() {
+                    if (this.totalSurface <= 0) return 0;
+                    return this.totalSurface * this.certReiRate;
+                },
+                // TOTALI A
+                totalA_Net() {
+                    return this.consultingCost + this.prefabWithSheetsCost + this.panelSheetsCost + this.foundationWithExecCost + this.certReiCost;
+                },
+                cassaA() { return this.totalA_Net * 0.04; },
+                totalA_Gross() { return this.totalA_Net + this.cassaA; },
+                costPerSqmA() { return this.totalSurface > 0 ? this.totalA_Gross / this.totalSurface : 0; },
+                
+                // TOTALI B
+                totalB_Net() {
+                    return this.consultingCost + this.prefabWithoutSheetsCost + this.foundationWithoutExecCost + this.certReiCost;
+                },
+                cassaB() { return this.totalB_Net * 0.04; },
+                totalB_Gross() { return this.totalB_Net + this.cassaB; },
+                costPerSqmB() { return this.totalSurface > 0 ? this.totalB_Gross / this.totalSurface : 0; }
+            },
+            mounted() {
+                // Inizializza le icone
+                lucide.createIcons();
+            },
+            updated() {
+                // Aggiorna icone se il DOM cambia
+                lucide.createIcons();
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
